@@ -68,15 +68,29 @@ const userController = {
   // delete user (BONUS: and delete associated thoughts)
   async deleteUser(req, res) {
     try {
-      const dbUserData = await User.findOneAndDelete({ _id: req.params.userId })
-
+      // Find and delete the user
+      const dbUserData = await User.findOneAndDelete({ _id: req.params.userId });
+  
       if (!dbUserData) {
         return res.status(404).json({ message: 'No user with this id!' });
       }
-
-      // BONUS: get ids of user's `thoughts` and delete them all
+  
+      // Delete all thoughts associated with the user
       await Thought.deleteMany({ _id: { $in: dbUserData.thoughts } });
-      res.json({ message: 'User and associated thoughts deleted!' });
+  
+      // Update all users to remove the deleted user from their friends list and update their friend count
+      const updatedUsers = await User.updateMany(
+        { friends: req.params.userId },
+        { 
+          $pull: { friends: req.params.userId },
+          $inc: { friendCount: -1 }
+        }
+      );
+  
+      // Log the number of updated users for debugging
+      console.log('Updated users:', updatedUsers.nModified);
+  
+      res.json({ message: 'User, associated thoughts, and friend references successfully deleted!' });
     } catch (err) {
       console.log(err);
       res.status(500).json(err);
